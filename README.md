@@ -6,7 +6,7 @@ the Maritime Robotics Laboratory at the KTH Royal Institute of Technology as
 part of the Swedish Maritime Robotics Centre (SMaRC) project.
 
 ## Dependencies
- - My fork of the [dmac ros driver]()
+ - My fork of the [dmac ros driver](https://github.com/aldoteran/dmac.git)
  - The [sbg_driver](https://github.com/SBG-Systems/sbg_ros_driver.git)
 
 ## Nodes
