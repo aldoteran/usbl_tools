@@ -38,9 +38,9 @@ class UsblRelay:
         we can then compare wrt the SBG's data.
         """
 
-        fix = [msg.relative_position.x,
-               msg.relative_position.y,
-               msg.relative_position.z]
+        fix = [round(msg.relative_position.x, 2),
+               round(msg.relative_position.y, 2),
+               round(msg.relative_position.z, 2)]
 
         payload_msg = DMACPayload()
         payload_msg.header.stamp = rospy.Time.now()
