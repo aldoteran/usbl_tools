@@ -42,14 +42,14 @@ acoustic modem, and GNSS + attitude data provided by an SBG AHRS to:
 
 The GUI looks something like this:
 
-![watertag](../imgs/watertag_gui.png")
+![watertag](imgs/watertag_gui.png")
 
 To run, it is a little bit tricky. If you have internet connection, it shouldn't be a problem,
 just choose a `mission_file` (if available otherwise it'll just center the map on the user's GNSS),
 a `grid_size` in meters, a `zoom_level` for the map (will impact the tiles resolution), and `degree_padding`
 which is basically how much you want your original view to be zoomed out. Then just run
 ```
-roslaunch usbl_tools watertag_vis.py mission_file:="/home/lolo_laptop/your_fav_mission.json" grid_size:=100
+roslaunch usbl_tools watertag_vis.py mission_file:=/home/lolo_laptop/your_fav_mission.json grid_size:=100
 zoom_level:=15 degree_padding:=0.01
 ```
 This should launch the visualization and start showing the position of the user, and if the USBL is pinging,
