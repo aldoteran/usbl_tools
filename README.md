@@ -42,7 +42,7 @@ acoustic modem, and GNSS + attitude data provided by an SBG AHRS to:
 
 The GUI looks something like this:
 
-![watertag](imgs/watertag_gui.png")
+![watertag](imgs/watertag_gui.png)
 
 To run, it is a little bit tricky. If you have internet connection, it shouldn't be a problem,
 just choose a `mission_file` (if available otherwise it'll just center the map on the user's GNSS),
