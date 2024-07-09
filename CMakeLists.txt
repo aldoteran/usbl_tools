@@ -7,7 +7,16 @@ project(usbl_tools)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED COMPONENTS
+  roscpp
+  rospy
+  std_msgs
+  diagnostic_msgs
+  geometry_msgs
+  message_generation
+  tf
+  dmac
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -101,7 +110,7 @@ find_package(catkin REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES usbl_tools
-#  CATKIN_DEPENDS other_catkin_pkg
+  CATKIN_DEPENDS dmac
 #  DEPENDS system_lib
 )
 
@@ -117,9 +126,19 @@ include_directories(
 )
 
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/usbl_tools.cpp
-# )
+#add_library(usbl-relay
+   #libs/usbl_relay/usbl_relay.cpp
+#)
+#add_dependencies(usbl-relay ${catkin_EXPORTED_TARGETS})
+
+# DmacTranslator class library.
+#set(DMAC_TRANSLATOR_SRCS
+   #libs/dmac_translator/dmac_translator.cpp
+#)
+#add_library(dmac-translator STATIC ${DMAC_TRANSLATOR_SRCS})
+#target_include_directories(dmac-translator PUBLIC libs)
+#target_compile_options(dmac-translator PRIVATE -Wall)
+#target_link_libraries(dmac-translator ${catkin_LIBRARIES})
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -145,6 +164,21 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
+
+#add_dependencies(dmac ${catkin_EXPORTED_TARGETS})
+
+## ROS node to relay position fixes to LoLo.
+#add_executable(relay_to_lolo src/relay_to_lolo.cpp)
+#add_dependencies(relay_to_lolo ${${PROJECT_NAME}_EXPORTED_TARGETS}
+                 #${catkin_EXPORTED_TARGETS})
+#target_link_libraries(relay_to_lolo ${catkin_LIBRARIES} usbl-relay)
+
+## ROS node to translate dmac USBL fixes to Marker messages for visualization.
+#add_executable(dmac_visualizer src/visualize_dmac.cpp)
+#add_dependencies(dmac_visualizer ${${PROJECT_NAME}_EXPORTED_TARGETS}
+                 #${catkin_EXPORTED_TARGETS})
+#target_include_directories(dmac_visualizer PUBLIC ./include/)
+#target_link_libraries(dmac_visualizer ${catkin_LIBRARIES} dmac-translator)
 
 #############
 ## Install ##

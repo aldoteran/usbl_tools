@@ -1,0 +1,20 @@
+<launch>
+    <arg name="grid_size" default="50"/>
+    <arg name="degree_padding" default="0.01"/>
+    <arg name="zoom_level" default="10"/>
+    <arg name="mission_file" default="None"/>
+    <arg name="offline_mode" default="False"/>
+    <arg name="use_ahrs_rot" default="False"/>
+    <arg name="debug" default="False"/>
+
+    <node pkg="usbl_tools" type="watertag_vis.py" name="watertag_tracking_gui" output="screen">
+        <param name="grid_size" type="int" value="$(arg grid_size)"/>
+        <param name="degree_padding" type="double" value="$(arg degree_padding)"/>
+        <param name="zoom_level" type="int" value="$(arg zoom_level)"/>
+        <param name="mission_file" type="string" value="$(arg mission_file)"/>
+        <param name="offline_mode" type="bool" value="$(arg offline_mode)"/>
+        <param name="use_ahrs_rot" type="bool" value="$(arg use_ahrs_rot)"/>
+        <param name="debug" type="bool" value="$(arg debug)"/>
+    </node>
+
+</launch>
