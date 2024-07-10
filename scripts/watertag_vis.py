@@ -198,7 +198,7 @@ class WatertagVisualizer:
         x = str(np.round(fix[0],7))
         y = str(np.round(fix[1],7))
         z = str(np.round(fix[2],7))
-        text = "lat:{0}  lon:{1}   depth: {2}".format(x, y, z)
+        text = "lat:{0}  lon:{1}   depth: {2}".format(y, x, z)
         return text
 
     def init_plot(self, tiles, mission_file):

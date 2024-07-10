@@ -9,6 +9,7 @@ part of the Swedish Maritime Robotics Centre (SMaRC) project.
 To interface the sensors (USBL + SBG AHRS), you need to get their ROS-drivers:
  - My fork of the [dmac ros driver](https://github.com/aldoteran/dmac.git),
  - The [sbg_driver](https://github.com/SBG-Systems/sbg_ros_driver.git),
+
 In order to run the WaterTag GUI, you're gonna need some more python-specific
 libraries:
  - The [utm](https://pypi.org/project/utm/) library,
