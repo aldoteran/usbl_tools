@@ -1,7 +1,7 @@
 <launch>
     <arg name="grid_size" default="50"/>
     <arg name="degree_padding" default="0.01"/>
-    <arg name="zoom_level" default="10"/>
+    <arg name="zoom_level" default="17"/>
     <arg name="mission_file" default="None"/>
     <arg name="offline_mode" default="False"/>
     <arg name="use_ahrs_rot" default="False"/>

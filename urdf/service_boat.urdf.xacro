@@ -4,7 +4,7 @@
   <xacro:property name="service_boat_mesh_file" value="file://$(find usbl_tools)/urdf/service_boat.dae"/>
   <xacro:property name="mount_mesh_file" value="file://$(find usbl_tools)/urdf/usbl_sbg_mount.dae"/>
 
-  <link name="$(arg robot_namespace)/base_link">
+  <link name="$(arg robot_namespace)/boat_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
@@ -27,18 +27,19 @@
 
   <joint name="$(arg robot_namespace)/sbg_joint" type="fixed">
     <origin xyz="0.0 -1.1 1.8" rpy="3.14159 0 0" />
-    <parent link="$(arg robot_namespace)/base_link"/>
-    <child link="$(arg robot_namespace)/sbg_link"/>
+    <parent link="$(arg robot_namespace)/sbg_link"/>
+    <child link="$(arg robot_namespace)/boat_link"/>
   </joint>
 
   <joint name="$(arg robot_namespace)/fiducials_joint" type="fixed">
-    <origin xyz="0.69 0.0 2.13" rpy="0 0 0" />
+    <origin xyz="0.49 0.0 2.13" rpy="1.5708 0 -1.5708" />
     <parent link="$(arg robot_namespace)/sbg_link"/>
     <child link="$(arg robot_namespace)/fiducials_center_link"/>
   </joint>
 
   <joint name="$(arg robot_namespace)/usbl_joint" type="fixed">
-    <origin xyz="0.345 0 2.13" rpy="3.14159 0 -1.5707" />
+    <!--<origin xyz="0.345 0 2.13" rpy="3.14159 0 -1.5707" />-->
+    <origin xyz="0.345 0 2.13" rpy="3.14159 0 0" />
     <parent link="$(arg robot_namespace)/sbg_link"/>
     <child link="$(arg robot_namespace)/usbl_link"/>
   </joint>
