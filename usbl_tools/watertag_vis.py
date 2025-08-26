@@ -12,13 +12,21 @@ import collections
 import datetime
 import json
 
-import rospy
+import rclpy
 import rospkg
-from dmac.msg import mUSBLFix
-from dmac.msg import DMACPayload
+from rclpy.node import Node
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.time import Time
+from std_msgs.msg import Header
+from ament_index_python.packages import get_package_share_directory
+from dmac2_interfaces.msg import MUSBLFix
+from dmac2_interfaces.msg import DMACPayload
 from sbg_driver.msg import SbgEkfNav
 from sbg_driver.msg import SbgEkfQuat
 from sensor_msgs.msg import NavSatFix
+from threading import Thread
+
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -36,8 +44,9 @@ CARTESIAN = 3
 
 class WatertagVisualizer:
 
-    def __init__(self, grid_size, use_ahrs_rot, degree_padding, zoom_level):
+    def __init__(self, node, grid_size, use_ahrs_rot, degree_padding, zoom_level):
 
+        self._node = node
         self.fig, self.ax = plt.subplots(figsize=(9,9), dpi=100)
         self.grid_size = grid_size
         self.is_plot_init = False
@@ -118,7 +127,7 @@ class WatertagVisualizer:
         self.new_bearing_fix = False
 
         # Useful for paths.
-        self.rospack = rospkg.RosPack()
+        #self.rospack = rospkg.RosPack()
 
         #TODO: for debugging.
         self.real_scatt = plt.scatter([],[])
@@ -222,7 +231,7 @@ class WatertagVisualizer:
             mid_lon = self.user_x_data
             mid_lat = self.user_y_data
 
-        rospy.loginfo("(WaterTag) Initializing visualization...")
+        self._node.get_logger().info("(WaterTag) Initializing visualization...")
 
         # Setup the window and plot.
         self.fig.canvas.set_window_title("WaterTag")
@@ -239,8 +248,9 @@ class WatertagVisualizer:
         plotter.plot(self.ax)
 
         # Add north rose.
-        rospy.loginfo("(WaterTag) Inserting rose...")
-        path = self.rospack.get_path('usbl_tools')
+        self._node.get_logger().info("(WaterTag) Inserting rose...")
+        #path = self.rospack.get_path('usbl_tools')
+        path = get_package_share_directory('usbl_tools')
         arrow = plt.imread(path + "/imgs/north_rose.png")
         imagebox = OffsetImage(arrow, zoom=0.05)
         x = self.ax.get_xlim()[1]-5e-6
@@ -268,7 +278,7 @@ class WatertagVisualizer:
                 self.mission = json.load(f)
             # If loading the json worked, initiate plot around the mission coordinates.
             self.waypoints = self.mission['waypoints']
-            rospy.loginfo("(WaterTag) Loading mission {} with {} waypoints".format(self.mission['mission_name'],
+            self._node.get_logger().info("(WaterTag) Loading mission {} with {} waypoints".format(self.mission['mission_name'],
                                                                                    len(self.waypoints)))
             lats = []
             lons = []
@@ -278,14 +288,14 @@ class WatertagVisualizer:
             mid_lat = (min(lats) + max(lats)) / 2.0
             mid_lon = (min(lons) + max(lons)) / 2.0
         except:
-            rospy.logwarn("(WaterTag) Could not read {} as a json dictionary".format(mission_file))
-            rospy.logwarn("(WaterTag) Initializing plot without mission plan.")
+            self._node.get_logger().warn("(WaterTag) Could not read {} as a json dictionary".format(mission_file))
+            self._node.get_logger().warn("(WaterTag) Initializing plot without mission plan.")
             return None, None
 
         return mid_lat, mid_lon
 
     def plot_mission_plan(self):
-        rospy.loginfo("(WaterTag) Overlaying mission plan.")
+        self._node.get_logger().info("(WaterTag) Overlaying mission plan.")
         x_points = [tilemapbase.project(w['lon'], w['lat'])[0] for w in self.waypoints]
         y_points = [tilemapbase.project(w['lon'], w['lat'])[1] for w in self.waypoints]
         names = [w['name'] for w in self.waypoints]
@@ -373,18 +383,24 @@ class WatertagVisualizer:
         I'm gonna do a bunch of processing in the callback,
         don't think it should matter since USBL is so slow.
         """
+        self._node.get_logger().info("USBL callback : " +str(msg))
         meas_type = msg.type
 
+        #Check if we know our own posisiton. Otherwise we will not plot anyting
+        if self.user_x_data == [] or self.user_y_data == []:
+            self._node.get_logger().error("(WaterTag) user poition unknown. Can not process and plot USBL data")
+            return
+
         if meas_type == RANGE_ONLY:
-            rospy.logwarn("(WaterTag) RANGE_ONLY processing not yet implemented.")
+            self._node.get_logger().warn("(WaterTag) RANGE_ONLY processing not yet implemented.")
             self._process_range_only(msg)
         elif meas_type == AZIMUTH_ONLY:
-            rospy.logwarn("(WaterTag) AZIMUTH_ONLY received.")
+            self._node.get_logger().warn("(WaterTag) AZIMUTH_ONLY received.")
             self._process_azimuth_only(msg)
         elif meas_type == FULL_FIX:
             self._process_full_fix(msg)
         elif meas_type == CARTESIAN:
-            rospy.logwarn("(WasterTag) Got a Cartesian fix, no idea what it means.")
+            self._node.get_logger().warn("(WasterTag) Got a Cartesian fix, no idea what it means.")
             return
 
     def payload_callback(self, msg):
@@ -392,11 +408,11 @@ class WatertagVisualizer:
         Process the whatever payload the AUV sent to the topside unit.
         ATM we only process the POS command.
         """
-
+        self._node.get_logger().info("Payload callback : " + str(msg))
         try:
             payload = [m for m in msg.payload.split(" ")]
         except:
-            rospy.logwarn("(WaterTag) Unable to split message, prolly corrupted.")
+            self._node.get_logger().warn("(WaterTag) Unable to split message, prolly corrupted.")
             return
 
         # First string is supposed to be the command ID.
@@ -407,8 +423,8 @@ class WatertagVisualizer:
             self._process_pos_cmd(msg, payload)
         # elif: whateverothercommmand.
         else:
-            rospy.logwarn("(WaterTag) Couldn't understand AUV, message was:")
-            rospy.loginfo(msg.payload)
+            self._node.get_logger().warn("(WaterTag) Couldn't understand AUV, message was:")
+            self._node.get_logger().info(msg.payload)
         return
 
     def _process_pos_cmd(self, msg, payload):
@@ -424,14 +440,14 @@ class WatertagVisualizer:
         try:
             ins_z_data = float(payload[3][:-2])
         except:
-            rospy.logwarn("(WaterTag) Corrupted depth message, setting equal to last.")
+            self._node.get_logger().warn("(WaterTag) Corrupted depth message, setting equal to last.")
             ins_z_data = self.ins_buffer[-1][2]
         self.ins_buffer.append([ins_x_data, ins_y_data,
                                 ins_z_data, msg.header.stamp.to_sec()])
         self.new_pos_msg = True
 
-        rospy.loginfo("(WaterTag) Obtained POS from AUV:")
-        rospy.loginfo(self.fix_to_string(self.ins_buffer[-1]))
+        self._node.get_logger().info("(WaterTag) Obtained POS from AUV:")
+        self._node.get_logger().info(self.fix_to_string(self.ins_buffer[-1]))
 
     def _process_azimuth_only(self, msg):
         """
@@ -445,7 +461,7 @@ class WatertagVisualizer:
 
         # If we don't have AHRS heading, we can't use the raw bearing and elevation.
         if not self.use_ahrs_rot or not self.is_user_init:
-            rospy.logwarn("(WaterTag) Got AZIMUTH_ONLY fix, need AHRS heading to compute.")
+            self._node.get_logger().warn("(WaterTag) Got AZIMUTH_ONLY fix, need AHRS heading to compute.")
             return
 
         # If we have AHRS heading, we're golden.
@@ -489,11 +505,11 @@ class WatertagVisualizer:
         self.auv_y_data, self.auv_x_data = self.relative_to_latlon(relative_pos)
         self.auv_z_data = np.round(abs(relative_pos['z']), decimals=1)
         self.auv_buffer.append([self.auv_x_data, self.auv_y_data,
-                                self.auv_z_data, msg.header.stamp.to_sec()])
+                                self.auv_z_data, msg.header.stamp.sec])
         self.new_usbl_fix = True
 
-        rospy.loginfo("(WaterTag) Received USBL FULL_FIX:")
-        rospy.loginfo(self.fix_to_string(self.auv_buffer[-1]))
+        self._node.get_logger().info("(WaterTag) Received USBL FULL_FIX:")
+        self._node.get_logger().info(self.fix_to_string(self.auv_buffer[-1]))
 
     def ahrs_callback(self, msg):
         """
@@ -501,6 +517,7 @@ class WatertagVisualizer:
         service boat and send it to the GUI for manipulation
         and plotting.
         """
+        #self._node.get_logger().info("(WaterTag) AHRS callback\r\n")
         self.user_vel = np.round(np.linalg.norm([msg.velocity.x,
                                                  msg.velocity.y,
                                                  msg.velocity.z]),
@@ -510,7 +527,7 @@ class WatertagVisualizer:
         self.user_y_data = msg.latitude
 
         if not self.is_user_init:
-            rospy.loginfo("(WaterTag) User position initialized!")
+            self._node.get_logger().info("(WaterTag) User position initialized!")
             self.is_user_init = True
 
         self.new_gps_fix = True
@@ -519,6 +536,7 @@ class WatertagVisualizer:
         """
         Receives the filtered heading of the user's AHRS in NED.
         """
+        #self._node.get_logger().info("(WaterTag) quat callback \r\n")
         self.user_rot_ned = Rotation.from_quat([msg.quaternion.x,
                                                 msg.quaternion.y,
                                                 msg.quaternion.z,
@@ -548,7 +566,7 @@ class WatertagVisualizer:
         Simple calculation of the AUV's heading using consecutive USBL fixes.
         """
         if len(self.auv_buffer) < 2:
-            rospy.logwarn("(WaterTag) buffer incomplete, setting heading to 0.")
+            self._node.get_logger().warn("(WaterTag) buffer incomplete, setting heading to 0.")
             return 0.0
         prior = self.auv_buffer[0]
         current = self.auv_buffer[-1]
@@ -747,56 +765,77 @@ def gen_marker(rot=0.0):
     arrow_head_marker = mpl.path.Path(arr, codes)
     return arrow_head_marker, scale
 
-if __name__ == '__main__':
+def main():
     # Init node.
-    rospy.init_node("watertag")
-    rospy.loginfo("(WaterTag) Executing ROS interface node...")
+    rclpy.init()
+    _node = Node(node_name="watertag")
+    #rospy.init_node("watertag")
+    _node.get_logger().info("(WaterTag) Executing ROS interface node...")
+
 
     # Get relevant parameters from the server.
     try:
-        grid_size = rospy.get_param("/watertag_tracking_gui/grid_size")
-        degree_padding = rospy.get_param("/watertag_tracking_gui/degree_padding")
-        zoom_level = rospy.get_param("/watertag_tracking_gui/zoom_level")
-        mission_file = rospy.get_param("/watertag_tracking_gui/mission_file")
-        offline_mode = rospy.get_param("/watertag_tracking_gui/offline_mode")
-        use_ahrs_rot = rospy.get_param("/watertag_tracking_gui/use_ahrs_rot")
-        debug = rospy.get_param("/watertag_tracking_gui/debug")
-    except:
-        rospy.logerr("Could not get a parameter from the server. Check launchfile.")
+        #Adverstise parameters? Maybe not?
+        _node.declare_parameter("grid_size", 10)
+        _node.declare_parameter("degree_padding",0.01)
+        _node.declare_parameter("zoom_level",4)
+        _node.declare_parameter("mission_file","None")
+        _node.declare_parameter("offline_mode",False)
+        _node.declare_parameter("use_ahrs_rot",False)
+        _node.declare_parameter("debug",False)
+
+        grid_size = _node.get_parameter("grid_size").value
+        degree_padding = _node.get_parameter("degree_padding").value
+        zoom_level = _node.get_parameter("zoom_level").value
+        mission_file = "None" #_node.get_parameter("mission_file").value
+        offline_mode = _node.get_parameter("offline_mode").value
+        use_ahrs_rot = _node.get_parameter("use_ahrs_rot").value
+        debug = _node.get_parameter("debug").value
+
+        #grid_size = rospy.get_param("/watertag_tracking_gui/grid_size")
+        #degree_padding = rospy.get_param("/watertag_tracking_gui/degree_padding")
+        #zoom_level = rospy.get_param("/watertag_tracking_gui/zoom_level")
+        #mission_file = "None" #rospy.get_param("/watertag_tracking_gui/mission_file")
+        #offline_mode = rospy.get_param("/watertag_tracking_gui/offline_mode")
+        #use_ahrs_rot = rospy.get_param("/watertag_tracking_gui/use_ahrs_rot")
+        #debug = rospy.get_param("/watertag_tracking_gui/debug")
+    except Exception as e:
+        _node.get_logger().error("Could not get a parameter from the server. Check launchfile." + str(e))
         exit()
 
     # Instantiate visualization.
-    vis = WatertagVisualizer(grid_size, use_ahrs_rot, degree_padding, zoom_level)
+    vis = WatertagVisualizer(_node, grid_size, use_ahrs_rot, degree_padding, zoom_level)
     plt.ion()
 
     # Subcribe to everything.
-    rospy.loginfo("(WaterTag) App initialized, starting listeners...")
-    rospy.Subscriber("/evologics_modem/measurement/usbl_fix", mUSBLFix,
-                        vis.usbl_callback)
-    rospy.Subscriber("/evologics_modem/recv", DMACPayload,
-                        vis.payload_callback)
-    rospy.Subscriber("/sbg/ekf_nav", SbgEkfNav,
-                        vis.ahrs_callback)
-    rospy.Subscriber("/sbg/ekf_quat", SbgEkfQuat,
-                     vis.ahrs_quat_callback)
+    _node.get_logger().info("(WaterTag) App initialized, starting listeners...")
+    
+    subscriber_callback_group = ReentrantCallbackGroup()
+    _node.create_subscription(topic="/dmac2_node/measurement/usbl_fix", msg_type=MUSBLFix, callback=vis.usbl_callback, qos_profile=10, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/dmac2_node/recv", msg_type=DMACPayload, callback=vis.payload_callback, qos_profile=10, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/sbg/ekf_nav", msg_type=SbgEkfNav, callback=vis.ahrs_callback, qos_profile=10, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/sbg/ekf_quat", msg_type=SbgEkfQuat, callback=vis.ahrs_quat_callback, qos_profile=10, callback_group=subscriber_callback_group)
 
     # Subscribe to the AUV's gps topic for debugging.
     if debug:
-        rospy.Subscriber("/lolo/core/gps", NavSatFix,
-                        vis.auv_gps_callback)
+        _node.create_subscription(topic="/lolo/core/gps", msg_type=NavSatFix, callback=vis.auv_gps_callback, qos_profile=10, callback_group=subscriber_callback_group)
 
-    rospy.loginfo("(WaterTag) Starting tilemapbase...")
+    _node.get_logger().info("(WaterTag) Starting tilemapbase...")
     tilemapbase.start_logging()
     tilemapbase.init(create=True)
     tiles = tilemapbase.tiles.build_OSM()
 
-    rate = rospy.Rate(2.0)
-    while not rospy.is_shutdown():
-        # Init plot.
+    executor = rclpy.executors.MultiThreadedExecutor()
+    executor.add_node(_node)
+
+    et = Thread(target=executor.spin)
+    et.start()
+
+    while rclpy.ok():
         if not vis.is_plot_init:
             vis.init_plot(tiles, mission_file)
             plt.pause(0.1)
-            rate.sleep()
+            time.sleep(0.1)
             continue
         # Update if needed.
         vis.update_user_plot()
@@ -806,4 +845,12 @@ if __name__ == '__main__':
         # Pause for plotting.
         vis.fig.canvas.draw_idle()
         plt.pause(0.01)
-        rate.sleep()
+        time.sleep(0.1)
+
+    et.join()
+    _node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
