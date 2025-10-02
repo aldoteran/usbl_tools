@@ -517,7 +517,7 @@ class WatertagVisualizer:
         service boat and send it to the GUI for manipulation
         and plotting.
         """
-        #self._node.get_logger().info("(WaterTag) AHRS callback\r\n")
+        self._node.get_logger().info("(WaterTag) AHRS callback\r\n")
         self.user_vel = np.round(np.linalg.norm([msg.velocity.x,
                                                  msg.velocity.y,
                                                  msg.velocity.z]),
@@ -536,7 +536,7 @@ class WatertagVisualizer:
         """
         Receives the filtered heading of the user's AHRS in NED.
         """
-        #self._node.get_logger().info("(WaterTag) quat callback \r\n")
+        self._node.get_logger().info("(WaterTag) quat callback \r\n")
         self.user_rot_ned = Rotation.from_quat([msg.quaternion.x,
                                                 msg.quaternion.y,
                                                 msg.quaternion.z,
@@ -811,14 +811,14 @@ def main():
     _node.get_logger().info("(WaterTag) App initialized, starting listeners...")
     
     subscriber_callback_group = ReentrantCallbackGroup()
-    _node.create_subscription(topic="/dmac2_node/measurement/usbl_fix", msg_type=MUSBLFix, callback=vis.usbl_callback, qos_profile=10, callback_group=subscriber_callback_group)
-    _node.create_subscription(topic="/dmac2_node/recv", msg_type=DMACPayload, callback=vis.payload_callback, qos_profile=10, callback_group=subscriber_callback_group)
-    _node.create_subscription(topic="/sbg/ekf_nav", msg_type=SbgEkfNav, callback=vis.ahrs_callback, qos_profile=10, callback_group=subscriber_callback_group)
-    _node.create_subscription(topic="/sbg/ekf_quat", msg_type=SbgEkfQuat, callback=vis.ahrs_quat_callback, qos_profile=10, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/dmac2_node/measurement/usbl_fix", msg_type=MUSBLFix, callback=vis.usbl_callback, qos_profile=0, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/dmac2_node/recv", msg_type=DMACPayload, callback=vis.payload_callback, qos_profile=0, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/sbg/ekf_nav", msg_type=SbgEkfNav, callback=vis.ahrs_callback, qos_profile=0, callback_group=subscriber_callback_group)
+    _node.create_subscription(topic="/sbg/ekf_quat", msg_type=SbgEkfQuat, callback=vis.ahrs_quat_callback, qos_profile=0, callback_group=subscriber_callback_group)
 
     # Subscribe to the AUV's gps topic for debugging.
     if debug:
-        _node.create_subscription(topic="/lolo/core/gps", msg_type=NavSatFix, callback=vis.auv_gps_callback, qos_profile=10, callback_group=subscriber_callback_group)
+        _node.create_subscription(topic="/lolo/core/gps", msg_type=NavSatFix, callback=vis.auv_gps_callback, qos_profile=0, callback_group=subscriber_callback_group)
 
     _node.get_logger().info("(WaterTag) Starting tilemapbase...")
     tilemapbase.start_logging()
@@ -844,6 +844,7 @@ def main():
             vis.update_real_plot()
         # Pause for plotting.
         vis.fig.canvas.draw_idle()
+        _node.get_logger().info("(WaterTag) update should be 10hz")
         plt.pause(0.01)
         time.sleep(0.1)
 
